@@ -3,6 +3,14 @@ name: Post release to Discord
 on:
   release:
     types: [published]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Version to announce without the leading v
+        required: true
+      change:
+        description: Optional short significant-feature line
+        required: false
 
 permissions: {}
 
@@ -11,9 +19,10 @@ jobs:
     runs-on: ubuntu-latest
     env:
       DISCORD_RELEASE_WEBHOOK: ${{ secrets.DISCORD_RELEASE_WEBHOOK }}
-      RELEASE_TAG: ${{ github.event.release.tag_name }}
-      RELEASE_BODY: ${{ github.event.release.body }}
-      RELEASE_URL: ${{ github.event.release.html_url }}
+      RELEASE_TAG: ${{ github.event.release.tag_name || inputs.version }}
+      RELEASE_BODY: ${{ github.event.release.body || inputs.change }}
+      RELEASE_URL: ${{ github.event.release.html_url || format('https://github.com/Taco-Make-Gui/Make-Engine-GUI-Releases/releases/tag/v{0}', inputs.version) }}
+      MANUAL_CHANGE: ${{ inputs.change }}
     steps:
       - name: Post branded update
         if: ${{ env.DISCORD_RELEASE_WEBHOOK != '' }}
@@ -21,8 +30,12 @@ jobs:
         run: |
           $version = $env:RELEASE_TAG.TrimStart('v')
           $change = 'Small bug fixes and improvements'
-          $match = [regex]::Match($env:RELEASE_BODY, '<!--\s*discord-change:\s*(.+?)\s*-->', [Text.RegularExpressions.RegexOptions]::Singleline)
-          if ($match.Success) { $change = $match.Groups[1].Value.Trim() }
+          if (-not [string]::IsNullOrWhiteSpace($env:MANUAL_CHANGE)) {
+            $change = $env:MANUAL_CHANGE.Trim()
+          } else {
+            $match = [regex]::Match($env:RELEASE_BODY, '<!--\s*discord-change:\s*(.+?)\s*-->', [Text.RegularExpressions.RegexOptions]::Singleline)
+            if ($match.Success) { $change = $match.Groups[1].Value.Trim() }
+          }
           $payload = @{
             username = 'Updates'
             embeds = @(@{
