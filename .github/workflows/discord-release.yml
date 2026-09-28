@@ -1,0 +1,38 @@
+name: Post release to Discord
+
+on:
+  release:
+    types: [published]
+
+permissions: {}
+
+jobs:
+  announce:
+    runs-on: ubuntu-latest
+    env:
+      DISCORD_RELEASE_WEBHOOK: ${{ secrets.DISCORD_RELEASE_WEBHOOK }}
+      RELEASE_TAG: ${{ github.event.release.tag_name }}
+      RELEASE_BODY: ${{ github.event.release.body }}
+      RELEASE_URL: ${{ github.event.release.html_url }}
+    steps:
+      - name: Post branded update
+        if: ${{ env.DISCORD_RELEASE_WEBHOOK != '' }}
+        shell: pwsh
+        run: |
+          $version = $env:RELEASE_TAG.TrimStart('v')
+          $change = 'Small bug fixes and improvements'
+          $match = [regex]::Match($env:RELEASE_BODY, '<!--\s*discord-change:\s*(.+?)\s*-->', [Text.RegularExpressions.RegexOptions]::Singleline)
+          if ($match.Success) { $change = $match.Groups[1].Value.Trim() }
+          $payload = @{
+            username = 'Updates'
+            embeds = @(@{
+              title = "New Make Engine GUI Update ($version)"
+              url = $env:RELEASE_URL
+              color = 8136445
+              fields = @(
+                @{ name = 'Changes'; value = "• $change" }
+                @{ name = 'How to Update'; value = 'Click **Check update** in Make Engine GUI and follow the update prompt.' }
+              )
+            })
+          } | ConvertTo-Json -Depth 8
+          Invoke-RestMethod -Uri $env:DISCORD_RELEASE_WEBHOOK -Method Post -ContentType 'application/json' -Body $payload
