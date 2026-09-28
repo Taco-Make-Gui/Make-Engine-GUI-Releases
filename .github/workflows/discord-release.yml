@@ -29,7 +29,7 @@ jobs:
         shell: pwsh
         run: |
           $version = $env:RELEASE_TAG.TrimStart('v')
-          $change = 'Small bug fixes and improvements'
+          $change = 'Performance, stability, and interface refinements.'
           if (-not [string]::IsNullOrWhiteSpace($env:MANUAL_CHANGE)) {
             $change = $env:MANUAL_CHANGE.Trim()
           } else {
@@ -37,17 +37,21 @@ jobs:
             if ($match.Success) { $change = $match.Groups[1].Value.Trim() }
           }
           $payload = @{
-            username = 'Updates'
+            username = 'Make Engine'
             content = '@everyone'
             allowed_mentions = @{ parse = @('everyone') }
             embeds = @(@{
-              title = "New Make Engine GUI Update ($version)"
+              author = @{ name = 'MAKE ENGINE RELEASE' }
+              title = "Version $version is live"
               url = $env:RELEASE_URL
-              color = 8136445
+              description = 'A fresh Make Engine build is ready for you.'
+              color = 5146879
               fields = @(
-                @{ name = 'Changes'; value = "• $change" }
-                @{ name = 'How to Update'; value = 'Click **Check update** in Make Engine GUI and follow the update prompt.' }
+                @{ name = 'WHAT IS INCLUDED'; value = $change }
+                @{ name = 'INSTALL FROM MAKE ENGINE'; value = 'Select **Check update** and follow the prompt.' }
               )
+              footer = @{ text = 'Make Engine | Built to stay current' }
+              timestamp = [DateTime]::UtcNow.ToString('o')
             })
           } | ConvertTo-Json -Depth 8
           Invoke-RestMethod -Uri $env:DISCORD_RELEASE_WEBHOOK -Method Post -ContentType 'application/json' -Body $payload
