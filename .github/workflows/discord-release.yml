@@ -38,6 +38,8 @@ jobs:
           }
           $payload = @{
             username = 'Updates'
+            content = '@everyone'
+            allowed_mentions = @{ parse = @('everyone') }
             embeds = @(@{
               title = "New Make Engine GUI Update ($version)"
               url = $env:RELEASE_URL
