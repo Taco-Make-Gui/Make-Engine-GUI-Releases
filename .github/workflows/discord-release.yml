@@ -9,7 +9,7 @@ on:
         description: Version to announce without the leading v
         required: true
       change:
-        description: Optional short significant-feature line
+        description: Short public change bullets, one per line
         required: false
 
 permissions: {}
@@ -29,13 +29,19 @@ jobs:
         shell: pwsh
         run: |
           $version = $env:RELEASE_TAG.TrimStart('v')
-          $change = 'Performance, stability, and interface refinements.'
-          if (-not [string]::IsNullOrWhiteSpace($env:MANUAL_CHANGE)) {
-            $change = $env:MANUAL_CHANGE.Trim()
-          } else {
-            $match = [regex]::Match($env:RELEASE_BODY, '<!--\s*discord-change:\s*(.+?)\s*-->', [Text.RegularExpressions.RegexOptions]::Singleline)
-            if ($match.Success) { $change = $match.Groups[1].Value.Trim() }
+          $summary = $env:MANUAL_CHANGE
+          if ([string]::IsNullOrWhiteSpace($summary)) {
+            $match = [regex]::Match([string]$env:RELEASE_BODY, '<!--\s*discord-change:\s*(.+?)\s*-->', [Text.RegularExpressions.RegexOptions]::Singleline)
+            if ($match.Success) { $summary = $match.Groups[1].Value }
           }
+          $bullets = @([string]$summary -split '\r?\n' | ForEach-Object {
+            $line = ($_ -replace '^\s*[-*•]\s+', '').Trim()
+            if ($line) {
+              if ($line.Length -gt 120) { $line = $line.Substring(0, 117).TrimEnd() + '...' }
+              '- ' + $line
+            }
+          } | Select-Object -First 5)
+          $change = if ($bullets.Count) { $bullets -join [Environment]::NewLine } else { 'See the release notes for changes.' }
           $payload = @{
             username = 'Make Engine'
             content = '@everyone'
@@ -47,7 +53,7 @@ jobs:
               description = 'A fresh Make Engine build is ready for you.'
               color = 5146879
               fields = @(
-                @{ name = 'WHAT IS INCLUDED'; value = $change }
+                @{ name = 'WHAT CHANGED'; value = $change }
                 @{ name = 'INSTALL FROM MAKE ENGINE'; value = 'Select **Check update** and follow the prompt.' }
               )
               footer = @{ text = 'Make Engine | Built to stay current' }
@@ -55,3 +61,4 @@ jobs:
             })
           } | ConvertTo-Json -Depth 8
           Invoke-RestMethod -Uri $env:DISCORD_RELEASE_WEBHOOK -Method Post -ContentType 'application/json' -Body $payload
+
